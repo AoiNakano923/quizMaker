@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <title>漢字クイズ</title>
+    <script type="text/javascript" src="array.js"></script>
+    </head>
+    <script>
+      let allWords = {};
+      chineseWords
+        .trim()
+        .split("\n")
+        .forEach((line) => {
+          let [chinese, pinyin] = line.trim().split(/\s+/);
+          allWords[chinese] = pinyin;
+        });
+
+      let words = {};
+      let wrongAnswers = new Set();
+      function saveWrongAnswer(chineseWord) {
+        let wrongAnswers =
+          JSON.parse(localStorage.getItem("wrongAnswers")) || [];
+        if (!wrongAnswers.includes(chineseWord)) {
+          wrongAnswers.push(chineseWord);
+          localStorage.setItem("wrongAnswers", JSON.stringify(wrongAnswers));
+        }
+      }
+
+      function loadWrongAnswers() {
+        let wrongAnswersData =
+          JSON.parse(localStorage.getItem("wrongAnswers")) || [];
+        words = wrongAnswersData.reduce((obj, chineseWord) => {
+          obj[chineseWord] = allWords[chineseWord];
+          return obj;
+        }, {});
+
+        function loadAllQuestions() {
+          words = allWords;
+          questionIndex = 0;
+          generateQuestion();
+        }
+
+        questionIndex = 0;
+        generateQuestion();
+      }
+      function showChoices() {
+        document.getElementById("choice0").style.display = "inline";
+        document.getElementById("choice1").style.display = "inline";
+        document.getElementById("choice2").style.display = "inline";
+        document.getElementById("choice3").style.display = "inline";
+        document.getElementById("startButton").style.display = "none"; // 問題表示ボタンを非表示
+      }
+
+      function hideChoices() {
+        document.getElementById("choice0").style.display = "none";
+        document.getElementById("choice1").style.display = "none";
+        document.getElementById("choice2").style.display = "none";
+        document.getElementById("choice3").style.display = "none";
+        document.getElementById("startButton").style.display = "inline"; // 問題表示ボタンを表示
+      }
+
+      let questionIndex = 0;
+
+      function generateQuestion() {
+        hideChoices(); // 選択肢を非表示にする
+
+        if (questionIndex >= Object.keys(words).length) {
+          questionIndex = 0;
+        }
+
+        const correct = Object.entries(words)[questionIndex];
+        const choices = [correct];
+        while (choices.length < 4) {
+          const choice =
+            Object.entries(allWords)[
+              Math.floor(Math.random() * Object.entries(allWords).length)
+            ];
+          if (!choices.some((c) => c[0] === choice[0])) {
+            choices.push(choice);
+          }
+        }
+        const correctIndex = Object.keys(allWords).indexOf(correct[0]);
+
+        choices.sort(() => Math.random() - 0.5);
+        document.getElementById("pinyin").textContent = `拼音: ${
+          correct[1]
+        } (問題番号: ${correctIndex + 1})`;
+
+        choices.forEach((choice, index) => {
+          const button = document.getElementById("choice" + index);
+          button.textContent = choice[0];
+          button.onclick = function () {
+            let result;
+            if (choice[0] === correct[0]) {
+              result = "正解！";
+            } else {
+              result = "不正解、正解は " + correct[0] + " です";
+              saveWrongAnswer(correct[0]); // 間違えた問題を保存
+            }
+            result += "\n\n選択肢:\n";
+            choices.forEach((c) => {
+              result += `${c[0]} - ${c[1]}\n`;
+            });
+            alert(result);
+            questionIndex++;
+            generateQuestion();
+          };
+        });
+      }
+
+      function loadSet(start, end) {
+        words = Object.fromEntries(Object.entries(allWords).slice(start, end));
+        questionIndex = 0;
+        generateQuestion();
+      }
+
+      window.onload = () => {
+        // セレクトボックスにオプションを動的に追加
+        let select = document.getElementById("sectionSelect");
+        let totalWords = Object.keys(allWords).length;
+        let sections = Math.ceil(totalWords / 50);
+
+        for (let i = 0; i < sections; i++) {
+          let option = document.createElement("option");
+          option.value = i;
+          option.text = `${i * 50 + 1}〜${Math.min((i + 1) * 50, totalWords)}`;
+          select.appendChild(option);
+        }
+
+        loadSet(0, 50); // 最初のセッションをロード
+      };
+    </script>
+
+    <style>
+      .choice-button {
+        width: 48%;
+        margin-right: 4%;
+        font-size: 4em;
+        padding: 10px 0;
+        display: none; /* 最初は非表示に設定 */
+      }
+
+      .choice-button:last-child {
+        margin-right: 0;
+      }
+
+      .choice-row {
+        margin-bottom: 10px;
+        display: flex;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>中国語統一試験一問一答</h1>
+    <h1><div id="pinyin"></div></h1>
+    <button id="startButton" onclick="showChoices()">問題を表示</button>
+    <!-- 問題を表示するボタン -->
+
+    <div class="choice-row">
+      <button id="choice0" class="choice-button"></button>
+      <br /><br />
+      <button id="choice1" class="choice-button"></button>
+    </div>
+    <br /><br />
+    <div class="choice-row">
+      <button id="choice2" class="choice-button"></button>
+      <br /><br />
+      <button id="choice3" class="choice-button"></button>
+    </div>
+
+    <br />
+    <select
+      id="sectionSelect"
+      onchange="loadSet(this.value * 50, Math.min((Number(this.value) + 1) * 50, Object.keys(allWords).length))"
+    ></select>
+
+    <button onclick="loadWrongAnswers()">間違えた問題のみ</button>
+    <button onclick="loadAllQuestions()">通常モードに戻る</button>
+  </body>
+</html>
